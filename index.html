@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gateway</title>
+    <style>
+        :root {
+            --primary: #007bff; --primary-hover: #0056b3; --bg: #f4f5f7;
+            --card-bg: #ffffff; --text: #333333; --border: #dddddd;
+            --success: #28a745; --danger: #dc3545;
+        }
+        body { font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 2rem 1rem; box-sizing: border-box;}
+        .container { background: var(--card-bg); padding: 2.5rem; border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 450px; text-align: center; margin: auto; box-sizing: border-box;}
+        .container.wide { max-width: 800px; }
+        .view { display: none; } .view.active { display: block; }
+        h2, h3 { margin-top: 0; }
+        .form-group { margin-bottom: 1rem; text-align: left; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: 600; font-size: 0.9rem; }
+        input[type="text"], input[type="password"], textarea { width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; font-family: inherit; font-size: 1rem;}
+        textarea { resize: vertical; min-height: 80px; font-family: monospace; font-size: 0.85rem; word-break: break-all;}
+        button { width: 100%; padding: 0.75rem; background: var(--primary); color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 0.5rem; transition: background-color 0.2s;}
+        button:hover { background: var(--primary-hover); }
+        button.danger { background: var(--danger); }
+        button.success { background: var(--success); }
+        button.secondary { background: #6c757d; }
+        button.small { padding: 0.4rem 0.8rem; font-size: 0.85rem; width: auto; margin-top: 0;}
+        .admin-section { border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; text-align: left; background: #fafafa; }
+        .user-card { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
+        .user-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); }
+        .user-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        @media (max-width: 600px) { .user-grid { grid-template-columns: 1fr; } }
+        .checkbox-group { display: flex; align-items: center; gap: 10px; }
+        .checkbox-group input { width: auto; }
+        .checkbox-group label { margin: 0; font-weight: normal;}
+        .config-box { background: #f8f9fa; border: 1px solid var(--border); border-radius: 6px; padding: 1rem; margin: 1.5rem 0; text-align: left; word-break: break-all; font-family: monospace; font-size: 0.85rem; transition: filter 0.3s; color: #24292e;}
+        .blur-text { filter: blur(5px); user-select: none; }
+        .error-msg { font-size: 0.85rem; margin-top: 0.5rem; display: none; color: var(--danger); text-align: center;}
+    </style>
+</head>
+<body>
+
+    <div id="view-api" class="container view">
+        <h2>403 Forbidden</h2>
+        <p>This server endpoint is for API consumption only. Direct browser access is not supported.</p>
+    </div>
+
+    <div id="view-login" class="container view">
+        <h2>System Access</h2>
+        <div class="form-group"><label>Username</label><input type="text" id="login-username" autocomplete="off"></div>
+        <div class="form-group"><label>Password</label><input type="password" id="login-password"></div>
+        <div id="login-error" class="error-msg">Invalid credentials.</div>
+        <button onclick="handleLogin()">Login</button>
+    </div>
+
+    <div id="view-user-dashboard" class="container view">
+        <h2>Your Configuration</h2>
+        <div id="user-status-msg"></div>
+        <div id="config-display-area">
+            <div class="checkbox-group" style="justify-content: center; margin-bottom: 10px;">
+                <input type="checkbox" id="user-reveal-toggle" onchange="toggleUserPrivacy()">
+                <label for="user-reveal-toggle">Reveal Configuration</label>
+            </div>
+            <div class="config-box blur-text" id="user-config-text"></div>
+            <button id="copy-btn" onclick="copyConfig('user-config-text', this)">Copy Configuration</button>
+        </div>
+        <button class="danger" onclick="logout()" style="margin-top: 2rem;">Logout</button>
+    </div>
+
+    <div id="view-admin-dashboard" class="container wide view">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2 style="margin:0;">Admin Control Panel</h2>
+            <button class="small secondary" onclick="logout()">Logout</button>
+        </div>
+
+        <div style="background: #e9ecef; padding: 10px; border-radius: 6px; margin-bottom: 1rem;">
+            <div class="checkbox-group">
+                <input type="checkbox" id="admin-reveal-toggle" onchange="renderAdminDashboard()">
+                <label for="admin-reveal-toggle" style="font-weight:bold; color:var(--danger);">👁️ Reveal Sensitive Data</label>
+            </div>
+        </div>
+
+        <div class="admin-section">
+            <h3>Update Admin Credentials</h3>
+            <div class="user-grid">
+                <div class="form-group"><label>Username</label><input type="password" id="admin-setting-username"></div>
+                <div class="form-group"><label>Password</label><input type="password" id="admin-setting-password"></div>
+            </div>
+            <button class="small" onclick="saveAdminCreds()" id="btn-save-admin">Update Admin Setup</button>
+        </div>
+
+        <div class="admin-section">
+            <div class="user-card-header">
+                <h3 style="margin:0;">Client Management</h3>
+                <button class="small success" onclick="addNewUser()">+ Add New User</button>
+            </div>
+            <div id="admin-users-list"></div>
+        </div>
+    </div>
+
+    <script>
+        let session = {
+            isLoggedIn: false,
+            role: null,
+            authData: { u: '', p: '' },
+            adminDB: null,
+            userData: null
+        };
+
+        // --- ROUTING ---
+        function handleRoute() {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            const hash = window.location.hash;
+
+            if (hash === '#/portal') {
+                if (!session.isLoggedIn) document.getElementById('view-login').classList.add('active');
+                else window.location.hash = '#/dashboard';
+            } else if (hash === '#/dashboard') {
+                if (!session.isLoggedIn) window.location.hash = '#/portal';
+                else if (session.role === 'admin') {
+                    renderAdminDashboard();
+                    document.getElementById('view-admin-dashboard').classList.add('active');
+                } else {
+                    renderUserDashboard();
+                    document.getElementById('view-user-dashboard').classList.add('active');
+                }
+            } else {
+                document.getElementById('view-api').classList.add('active');
+            }
+        }
+
+        window.addEventListener('hashchange', handleRoute);
+        window.addEventListener('load', handleRoute);
+
+        // --- SECURE API CALLS ---
+        async function handleLogin() {
+            const u = document.getElementById('login-username').value;
+            const p = document.getElementById('login-password').value;
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('login-error').style.display = 'none';
+
+                    if (data.role === 'admin') {
+                        session = { isLoggedIn: true, role: 'admin', authData: { u, p }, adminDB: data.db, userData: null };
+                    } else {
+                        session = { isLoggedIn: true, role: 'user', authData: null, adminDB: null, userData: data.user_data };
+                    }
+                    window.location.hash = '#/dashboard';
+                } else {
+                    document.getElementById('login-error').style.display = 'block';
+                }
+            } catch (error) {
+                alert("Server connection failed.");
+            }
+        }
+
+        async function pushDB() {
+            try {
+                const response = await fetch('/api/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        auth_user: session.authData.u,
+                        auth_pass: session.authData.p,
+                        db: session.adminDB
+                    })
+                });
+
+                if (!response.ok) {
+                    alert("Unauthorized to save. Please log in again.");
+                    logout();
+                }
+            } catch (e) {
+                alert("Failed to save changes to server!");
+            }
+        }
+
+        function logout() {
+            session = { isLoggedIn: false, role: null, authData: { u: '', p: '' }, adminDB: null, userData: null };
+            document.querySelectorAll('input:not([type="checkbox"]), textarea').forEach(i => i.value = '');
+            if(document.getElementById('admin-reveal-toggle')) document.getElementById('admin-reveal-toggle').checked = false;
+            if(document.getElementById('user-reveal-toggle')) document.getElementById('user-reveal-toggle').checked = false;
+            window.location.hash = '#/portal';
+        }
+
+        // --- UTILS ---
+        function copyConfig(elementId, btn) {
+            const text = document.getElementById(elementId).innerText || document.getElementById(elementId).value;
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            textArea.style.top = "0"; textArea.style.left = "0";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                const orig = btn.innerText;
+                btn.innerText = "Copied!";
+                btn.classList.add('success');
+                setTimeout(() => { btn.innerText = orig; btn.classList.remove('success'); }, 2000);
+            } catch (err) {
+                alert("Failed to copy. Please copy manually.");
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // --- USER DASHBOARD ---
+        function renderUserDashboard() {
+            const user = session.userData;
+            if (!user) { logout(); return; }
+
+            const configArea = document.getElementById('config-display-area');
+            const statusMsg = document.getElementById('user-status-msg');
+
+            toggleUserPrivacy();
+
+            if (user.enabled) {
+                configArea.style.display = 'block';
+                document.getElementById('user-config-text').innerText = user.config;
+                statusMsg.innerHTML = `<p style="color: var(--success);">Welcome back, ${user.username}. Your connection is active.</p>`;
+            } else {
+                configArea.style.display = 'none';
+                statusMsg.innerHTML = `<p style="color: var(--danger);">Account disabled. Please contact the administrator.</p>`;
+            }
+        }
+
+        function toggleUserPrivacy() {
+            const isRevealed = document.getElementById('user-reveal-toggle').checked;
+            const configBox = document.getElementById('user-config-text');
+            if(isRevealed) configBox.classList.remove('blur-text');
+            else configBox.classList.add('blur-text');
+        }
+
+        // --- ADMIN DASHBOARD ---
+        function renderAdminDashboard() {
+            if (!session.adminDB) return;
+
+            const isRevealed = document.getElementById('admin-reveal-toggle').checked;
+            const inputType = isRevealed ? 'text' : 'password';
+            const blurClass = isRevealed ? '' : 'blur-text';
+
+            document.getElementById('admin-setting-username').value = session.adminDB.admin.username;
+            document.getElementById('admin-setting-username').type = inputType;
+            document.getElementById('admin-setting-password').value = session.adminDB.admin.password;
+            document.getElementById('admin-setting-password').type = inputType;
+
+            const listArea = document.getElementById('admin-users-list');
+            listArea.innerHTML = '';
+
+            if (session.adminDB.users.length === 0) { listArea.innerHTML = '<p>No users found.</p>'; return; }
+
+            session.adminDB.users.forEach(user => {
+                listArea.innerHTML += `
+                    <div class="user-card">
+                        <div class="user-card-header">
+                            <strong class="${blurClass}">Client: ${user.username}</strong>
+                            <button class="small danger" onclick="deleteUser('${user.id}')">Delete</button>
+                        </div>
+                        <div class="user-grid">
+                            <div class="form-group"><label>Username</label><input type="${inputType}" id="usr-name-${user.id}" value="${user.username}"></div>
+                            <div class="form-group"><label>Password</label><input type="${inputType}" id="usr-pass-${user.id}" value="${user.password}"></div>
+                        </div>
+                        <div class="form-group"><label>Config</label><textarea class="${blurClass}" id="usr-cfg-${user.id}">${user.config}</textarea></div>
+                        <div class="user-card-header" style="border:none; padding:0; margin:0;">
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="usr-en-${user.id}" ${user.enabled ? 'checked' : ''}>
+                                <label>Account Enabled</label>
+                            </div>
+                            <div style="display:flex; gap:5px;">
+                                <button class="small secondary" onclick="copyConfig('usr-cfg-${user.id}', this)">Copy</button>
+                                <button class="small" onclick="saveUser('${user.id}')" id="btn-save-${user.id}">Save</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // --- ADMIN ACTIONS ---
+        async function saveAdminCreds() {
+            session.adminDB.admin.username = document.getElementById('admin-setting-username').value;
+            session.adminDB.admin.password = document.getElementById('admin-setting-password').value;
+
+            // Update session auth data so the next save command doesn't fail
+            session.authData.u = session.adminDB.admin.username;
+            session.authData.p = session.adminDB.admin.password;
+
+            await pushDB();
+
+            const btn = document.getElementById('btn-save-admin');
+            btn.innerText = "Updated!"; btn.classList.add('success');
+            setTimeout(() => { btn.innerText = "Update Admin Setup"; btn.classList.remove('success'); }, 2000);
+        }
+
+        async function addNewUser() {
+            session.adminDB.users.unshift({
+                id: 'user_' + Date.now(),
+                username: 'user_' + Math.floor(Math.random()*1000),
+                password: 'pass_' + Math.floor(Math.random()*1000),
+                enabled: true,
+                config: ''
+            });
+            await pushDB();
+            renderAdminDashboard();
+        }
+
+        async function saveUser(id) {
+            const index = session.adminDB.users.findIndex(x => x.id === id);
+            if (index > -1) {
+                session.adminDB.users[index].username = document.getElementById(`usr-name-${id}`).value;
+                session.adminDB.users[index].password = document.getElementById(`usr-pass-${id}`).value;
+
+                let rawConfig = document.getElementById(`usr-cfg-${id}`).value;
+                rawConfig = rawConfig.replace(/vmess:\/\/\.\.\.$/g, '').trim();
+                session.adminDB.users[index].config = rawConfig;
+
+                session.adminDB.users[index].enabled = document.getElementById(`usr-en-${id}`).checked;
+                await pushDB();
+
+                const btn = document.getElementById(`btn-save-${id}`);
+                btn.innerText = "Saved!"; btn.classList.add('success');
+                setTimeout(() => { btn.innerText = "Save"; btn.classList.remove('success'); }, 2000);
+                renderAdminDashboard();
+            }
+        }
+
+        async function deleteUser(id) {
+            if(confirm("Are you sure you want to delete this user?")) {
+                session.adminDB.users = session.adminDB.users.filter(x => x.id !== id);
+                await pushDB();
+                renderAdminDashboard();
+            }
+        }
+    </script>
+</body>
+</html>
